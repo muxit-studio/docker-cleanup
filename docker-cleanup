@@ -7,18 +7,18 @@ if [[ "$1" == "docker-cli-plugin-metadata" ]]; then
   "SchemaVersion": "0.1.0",
   "Vendor": "MUXIT Studio",
   "Version": "v0.1",
-  "ShortDescription": "Clean up old docker images and containers",
+  "ShortDescription": "Clean up old docker images and containers"
 }
 EOF
   exit
 fi
 
 _help() {
-  printf "
-Usage: docker cleanup [COMMAND] [PERIOD]
+  cat <<EOF
+Usage: docker cleanup [COMMAND] [DAYS]
 
 A Docker CLI plugin to clean up unused docker images, containers, volumes and
-networks on a given period
+networks on a given days
 
 Commands:
   help                Show this help message
@@ -29,15 +29,19 @@ Commands:
   networks            Clean up unused networks
 
 Examples:
-  docker cleanup all 1w
+  docker cleanup all 30
 
-"
+EOF
 }
 
-DEFAULT_PERIOD="1w"
+if [[ "$1" == "cleanup" ]]; then
+  shift
+fi
+
+DEFAULT_PERIOD=30
 
 cmd="${1:-}"
-period="${2:-$DEFAULT_PERIOD}"
+period="$((${2:-$DEFAULT_PERIOD} * 24))h"
 
 cleanup_all() {
   docker system prune -af --filter "until=$period"
@@ -62,6 +66,7 @@ cleanup_networks() {
 case "$cmd" in
   help)
     _help
+    exit 0
     ;;
   all)
     cleanup_all "$@"
@@ -77,6 +82,11 @@ case "$cmd" in
     ;;
   networks)
     cleanup_networks "$@"
+    ;;
+  -*)
+    echo "Error: Unknown option: $cmd"
+    _help
+    exit 1
     ;;
   *)
     _help
