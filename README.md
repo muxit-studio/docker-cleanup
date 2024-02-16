@@ -12,7 +12,7 @@ appropriate directory for Docker CLI plugins.
 
 ```bash
 # Download the plugin script
-curl -o docker-cleanup "https://example.com/docker-cleanup.sh"
+curl -o docker-cleanup "https://raw.githubusercontent.com/muxit-studio/docker-cleanup/main/docker-cleanup"
 
 # Make the script executable
 chmod +x docker-cleanup
