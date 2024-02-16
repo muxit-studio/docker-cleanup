@@ -1,0 +1,110 @@
+#!/bin/bash
+set -e
+
+if [[ "$1" == "docker-cli-plugin-metadata" ]]; then
+  cat <<EOF
+{
+  "SchemaVersion": "0.1.0",
+  "Vendor": "MUXIT Studio",
+  "Version": "v0.1",
+  "ShortDescription": "Clean up old docker images and containers",
+}
+EOF
+  exit
+fi
+
+_help() {
+  printf "Usage: docker cleanup [COMMAND] [OPTIONS]
+
+A Docker CLI plugin to clean up unused docker images, containers, volumes and
+networks on a given period
+
+Commands:
+  help                Show this help message
+  all                 Clean up all unused Docker objects (containers, images, volumes, networks)
+  containers          Clean up unused containers
+  images              Clean up unused images
+  volumes             Clean up unused volumes
+  networks            Clean up unused networks
+
+Options for cleanup:
+  --period TIME       Set the period in golang duration format (e.g. 720h, 1w, 1m, 1y)
+
+Examples:
+  docker cleanup all --period 1w
+"
+}
+
+cmd="${1:-all}"
+shift
+
+# Default period of 1 week
+DEFAULT_PERIOD="1w"
+period="${DEFAULT_PERIOD}"
+
+# Function to handle parsing of period option
+parse_period_option() {
+  while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do case $1 in
+    --period )
+      shift; period=$1
+      ;;
+    *)
+      echo "Unknown option: $1"
+      exit 1
+      ;;
+  esac; shift; done
+  if [[ "$1" == '--' ]]; then shift; fi
+}
+
+# Cleanup functions
+cleanup_all() {
+  parse_period_option "$@"
+  docker system prune -af --filter "until=$period"
+}
+
+cleanup_containers() {
+  parse_period_option "$@"
+  docker container prune -f --filter "until=$period"
+}
+
+cleanup_images() {
+  parse_period_option "$@"
+  docker image prune -af --filter "until=$period"
+}
+
+cleanup_volumes() {
+  parse_period_option "$@"
+  docker volume prune -f --filter "until=$period"
+}
+
+cleanup_networks() {
+  parse_period_option "$@"
+  docker network prune -f --filter "until=$period"
+}
+
+# Command switch
+case "$cmd" in
+  help)
+    _help
+    ;;
+  all)
+    cleanup_all "$@"
+    ;;
+  containers)
+    cleanup_containers "$@"
+    ;;
+  images)
+    cleanup_images "$@"
+    ;;
+  volumes)
+    cleanup_volumes "$@"
+    ;;
+  networks)
+    cleanup_networks "$@"
+    ;;
+  *)
+    echo "Unknown command: $cmd. Showing help instead."
+    _help
+    exit 1
+    ;;
+esac
