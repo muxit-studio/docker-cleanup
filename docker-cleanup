@@ -15,21 +15,19 @@ fi
 
 _help() {
   cat <<EOF
-Usage: docker cleanup [COMMAND] [DAYS]
+Usage: docker cleanup [COMMAND] [TIME]
 
 A Docker CLI plugin to clean up unused docker images, containers, volumes and
-networks on a given days
+networks on a given days. [TIME] is a duration string
 
 Commands:
   help                Show this help message
   all                 Clean up all unused Docker objects (containers, images, volumes, networks)
-  containers          Clean up unused containers
-  images              Clean up unused images
-  volumes             Clean up unused volumes
-  networks            Clean up unused networks
 
 Examples:
-  docker cleanup all 30
+  docker cleanup all 30d
+  docker cleanup all 2w
+  docker cleanup all 1y
 
 EOF
 }
@@ -38,58 +36,50 @@ if [[ "$1" == "cleanup" ]]; then
   shift
 fi
 
-DEFAULT_PERIOD=30
+# A duration string is a possibly signed sequence of decimal numbers, each
+# with optional fraction and a unit suffix, such as "300ms", "-1.5h" or
+# "2h45m". Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+#
+# See: https://pkg.go.dev/time#ParseDuration
+DEFAULT_PERIOD="$((24 * 30))h"
 
 cmd="${1:-}"
-period="$((${2:-$DEFAULT_PERIOD} * 24))h"
+time="${2:-}"
+
+# We're converting the given time to hours to be used in the `docker system
+# prune --filter "until=$periodInHours"` command. The time can be in the format
+# of `30d`, `2w`, `1y` or `24h`, where `d` is for days, `w` is for
+# weeks, `y` is for years and `h` is for hours.
+#
+# The duration string only valid time units are "ns", "us" (or "µs"), "ms", "s",
+# "m", "h", thus we're converting the given time to hours.
+if [[ -z "$time" ]]; then
+  periodInHours="$DEFAULT_PERIOD"
+elif [[ "$time" =~ ^[0-9]+d$ ]]; then
+  days="${time%d}"
+  periodInHours="$((days * 24))h"
+elif [[ "$time" =~ ^[0-9]+w$ ]]; then
+  weeks="${time%w}"
+  periodInHours="$((weeks * 7 * 24))h"
+elif [[ "$time" =~ ^[0-9]+y$ ]]; then
+  years="${time%y}"
+  periodInHours="$((years * 365 * 24))h"
+fi
 
 cleanup_all() {
-  docker system prune -af --filter "until=$period"
-}
-
-cleanup_containers() {
-  docker container prune -f --filter "until=$period"
-}
-
-cleanup_images() {
-  docker image prune -af --filter "until=$period"
-}
-
-cleanup_volumes() {
-  docker volume prune -f --filter "until=$period"
-}
-
-cleanup_networks() {
-  docker network prune -f --filter "until=$period"
+  docker system prune -af --filter "until=$periodInHours"
 }
 
 case "$cmd" in
-  help)
-    _help
-    exit 0
-    ;;
-  all)
-    cleanup_all "$@"
-    ;;
-  containers)
-    cleanup_containers "$@"
-    ;;
-  images)
-    cleanup_images "$@"
-    ;;
-  volumes)
-    cleanup_volumes "$@"
-    ;;
-  networks)
-    cleanup_networks "$@"
-    ;;
-  -*)
-    echo "Error: Unknown option: $cmd"
-    _help
-    exit 1
-    ;;
-  *)
-    _help
-    exit 1
-    ;;
+help)
+  _help
+  exit 0
+  ;;
+all)
+  cleanup_all "$@"
+  ;;
+*)
+  _help
+  exit 1
+  ;;
 esac
