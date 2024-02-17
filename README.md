@@ -11,14 +11,7 @@ commands download the plugin script, make it executable, and move it to the
 appropriate directory for Docker CLI plugins.
 
 ```bash
-# Create directory for Docker cli plugins
-mkdir -p ~/.docker/cli-plugins
-
-# Download the plugin script
 curl "https://raw.githubusercontent.com/muxit-studio/docker-cleanup/main/docker-cleanup" -o ~/.docker/cli-plugins/docker-cleanup
-
-# Make the script executable
-chmod +x ~/.docker/cli-plugins/docker-cleanup
 ```
 
 ## Usage
@@ -28,27 +21,25 @@ docker cleanup command. The plugin supports several commands and options to
 target specific Docker objects and set a cleanup period.
 
 ```text
-Usage: docker cleanup [COMMAND] [DAYS]
+Usage: docker cleanup [COMMAND] [TIME]
 
 A Docker CLI plugin to clean up unused docker images, containers, volumes and
-networks on a given days
+networks on a given days. [TIME] is a duration string
 
 Commands:
   help                Show this help message
   all                 Clean up all unused Docker objects (containers, images, volumes, networks)
-  containers          Clean up unused containers
-  images              Clean up unused images
-  volumes             Clean up unused volumes
-  networks            Clean up unused networks
 
 Examples:
-  docker cleanup all 30
+  docker cleanup all 30d
+  docker cleanup all 2w
+  docker cleanup all 1y
 ```
 
 ## Contributing
 
-Contributions to the Docker cleanup plugin are welcome! Please feel free to
-submit pull requests or open issues.
+Contributions are welcome! Please feel free to submit pull requests or open
+issues.
 
 ## License
 
