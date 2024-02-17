@@ -11,7 +11,7 @@ commands download the plugin script, make it executable, and move it to the
 appropriate directory for Docker CLI plugins.
 
 ```bash
-curl "https://raw.githubusercontent.com/muxit-studio/docker-cleanup/main/docker-cleanup" -o ~/.docker/cli-plugins/docker-cleanup
+curl "https://raw.githubusercontent.com/muxit-studio/docker-cleanup/main/install.sh" | bash
 ```
 
 ## Usage
