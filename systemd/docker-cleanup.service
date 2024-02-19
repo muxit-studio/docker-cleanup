@@ -1,0 +1,11 @@
+[Unit]
+Description=Docker cleanup service
+OnFailure=docker-cleanup-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker cleanup all 3d
+ExecStartPost=/usr/bin/curl -H "Content-Type: application/json" -d '{"content": "Docker cleanup succeeded!"}' YOUR_SUCCESS_WEBHOOK_URL
+
+[Install]
+WantedBy=default.target

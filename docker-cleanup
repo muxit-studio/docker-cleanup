@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 if [[ "$1" == "docker-cli-plugin-metadata" ]]; then
   cat <<EOF
@@ -25,9 +24,9 @@ Commands:
   all                 Clean up all unused Docker objects (containers, images, volumes, networks)
 
 Examples:
-  docker cleanup all 30d
-  docker cleanup all 2w
-  docker cleanup all 1y
+  docker cleanup 30d
+  docker cleanup 2w
+  docker cleanup 1y
 
 EOF
 }
@@ -42,44 +41,100 @@ fi
 #
 # See: https://pkg.go.dev/time#ParseDuration
 DEFAULT_PERIOD="$((24 * 30))h"
+LOG=${LOG:-"/tmp/docker-cleanup.log"}
 
-cmd="${1:-}"
-time="${2:-}"
+cleanup() {
+  local period="$1" periodInHours time
 
-# We're converting the given time to hours to be used in the `docker system
-# prune --filter "until=$periodInHours"` command. The time can be in the format
-# of `30d`, `2w`, `1y` or `24h`, where `d` is for days, `w` is for
-# weeks, `y` is for years and `h` is for hours.
-#
-# The duration string only valid time units are "ns", "us" (or "µs"), "ms", "s",
-# "m", "h", thus we're converting the given time to hours.
-if [[ -z "$time" ]]; then
-  periodInHours="$DEFAULT_PERIOD"
-elif [[ "$time" =~ ^[0-9]+d$ ]]; then
-  days="${time%d}"
-  periodInHours="$((days * 24))h"
-elif [[ "$time" =~ ^[0-9]+w$ ]]; then
-  weeks="${time%w}"
-  periodInHours="$((weeks * 7 * 24))h"
-elif [[ "$time" =~ ^[0-9]+y$ ]]; then
-  years="${time%y}"
-  periodInHours="$((years * 365 * 24))h"
-fi
+  time="$(date +"%Y-%m-%d %H:%M")"
 
-cleanup_all() {
-  docker system prune -af --filter "until=$periodInHours"
+  # We're converting the given period to hours to be used in the `docker system
+  # prune --filter "until=$periodInHours"` command. The period can be in the format
+  # of `30d`, `2w`, `1y` or `24h`, where `d` is for days, `w` is for
+  # weeks, `y` is for years and `h` is for hours.
+  #
+  # The duration string only valid period units are "ns", "us" (or "µs"), "ms", "s",
+  # "m", "h", thus we're converting the given period to hours.
+  if [[ -z "$period" ]]; then
+    periodInHours="$DEFAULT_PERIOD"
+  elif [[ "$period" =~ ^[0-9]+d$ ]]; then
+    days="${period%d}"
+    periodInHours="$((days * 24))h"
+  elif [[ "$period" =~ ^[0-9]+w$ ]]; then
+    weeks="${period%w}"
+    periodInHours="$((weeks * 7 * 24))h"
+  elif [[ "$period" =~ ^[0-9]+y$ ]]; then
+    years="${period%y}"
+    periodInHours="$((years * 365 * 24))h"
+  elif [[ "$period" =~ ^[0-9]+h$ ]]; then
+    periodInHours="$period"
+  fi
+
+  echo "[INFO] $time: Cleaning up all unused objects older than (${periodInHours:-$period})" >>"$LOG"
+
+  docker system prune -af --filter "until=${periodInHours:-$period}" >>"$LOG" 2>&1
+
+  if [[ $? -eq 0 ]]; then
+    echo "[INFO] $time: Clean up completed successfully" >>"$LOG"
+  else
+    echo "[ERROR] $time: Clean up failed" >>"$LOG"
+  fi
 }
 
-case "$cmd" in
+# =============================================
+# Testmode
+# =============================================
+
+TEST_MODE=${TEST_MODE:-0}
+if [[ $TEST_MODE -eq 1 ]]; then
+  docker() {
+    if [[ $TEST_MODE -eq 1 ]]; then
+      echo "docker $*"
+      if [[ $STATUS -eq 1 ]]; then
+        # failed to run the command
+        # Simulate failure
+        cat <<EOF
+Error: failed to run the command
+EOF
+        return 1
+      else
+        cat <<EOF
+Deleted Images:
+deleted: sha256:1234567890
+deleted: sha256:0987654321
+deleted: sha256:abcdef1234
+deleted: sha256:567890abcd
+deleted: sha256:1234abcdef
+
+Deleted Containers:
+deleted: 1234567890
+deleted: 0987654321
+deleted: abcdef1234
+
+Total reclaimed space: 0B
+EOF
+        return 0
+      fi
+    else
+      command docker "$@"
+    fi
+  }
+fi
+
+# =============================================
+# Command execution
+# =============================================
+
+case "$1" in
 help)
   _help
   exit 0
   ;;
-all)
-  cleanup_all "$@"
-  ;;
-*)
+-*)
   _help
   exit 1
+  ;;
+*)
+  cleanup "$1"
   ;;
 esac
